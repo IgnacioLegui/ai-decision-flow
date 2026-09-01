@@ -22,6 +22,7 @@ function makeDecisionEdge(
     targetPosition,
     markerEnd,
     selected,
+    data,
   }: EdgeProps) {
     const [edgePath, labelX, labelY] = getSmoothStepPath({
       sourceX,
@@ -32,13 +33,19 @@ function makeDecisionEdge(
       targetPosition,
     });
 
+    const active = Boolean((data as { active?: boolean } | undefined)?.active);
+
     return (
       <>
         <BaseEdge
           id={id}
           path={edgePath}
           markerEnd={markerEnd}
-          style={{ stroke: strokeColor, strokeWidth: selected ? 2.5 : 1.5 }}
+          style={{
+            stroke: strokeColor,
+            strokeWidth: active ? 4 : selected ? 2.5 : 1.5,
+            filter: active ? `drop-shadow(0 0 3px ${strokeColor})` : undefined,
+          }}
         />
         <EdgeLabelRenderer>
           <div

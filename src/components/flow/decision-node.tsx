@@ -6,10 +6,17 @@ import { Textarea } from "@/components/ui/textarea";
 
 export type DecisionNodeData = {
   prompt: string;
+  status?: "idle" | "active" | "visited";
+};
+
+const statusRing: Record<NonNullable<DecisionNodeData["status"]>, string> = {
+  idle: "border-border",
+  active: "border-blue-500 ring-2 ring-blue-400 animate-pulse",
+  visited: "border-emerald-500/70 ring-1 ring-emerald-400/50",
 };
 
 function DecisionNodeComponent({ id, data, selected }: NodeProps) {
-  const { prompt } = data as DecisionNodeData;
+  const { prompt, status = "idle" } = data as DecisionNodeData;
   const { updateNodeData } = useReactFlow();
 
   const handleChange = useCallback(
@@ -22,7 +29,7 @@ function DecisionNodeComponent({ id, data, selected }: NodeProps) {
   return (
     <div
       className={`w-64 rounded-lg border bg-card p-3 shadow-md ${
-        selected ? "border-primary ring-2 ring-primary/40" : "border-border"
+        selected ? "border-primary ring-2 ring-primary/40" : statusRing[status]
       }`}
     >
       <Handle

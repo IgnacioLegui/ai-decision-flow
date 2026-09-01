@@ -1,7 +1,8 @@
 import { serve } from "inngest/next";
 import { inngest } from "@/inngest/client";
+import { runFlow } from "@/inngest/functions";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [/* decision-step functions are registered here starting Phase 3 */],
+  functions: [runFlow],
 });
