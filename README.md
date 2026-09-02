@@ -29,10 +29,14 @@ cp .env.local.example .env.local
 ```
 
 ```
+INNGEST_DEV=1
 LLM_BASE_URL=https://openrouter.ai/api/v1
 LLM_API_KEY=sk-or-v1-...   # from https://openrouter.ai/keys
 LLM_MODEL=openrouter/free
 ```
+
+`INNGEST_DEV=1` tells the Inngest SDK it's running against the local Dev Server rather than
+production — without it, requests to `/api/inngest` return a 500.
 
 To get a key: sign up free at [openrouter.ai](https://openrouter.ai), then at
 [openrouter.ai/settings/privacy](https://openrouter.ai/settings/privacy) turn ON both "Free
@@ -56,10 +60,28 @@ npx inngest-cli@latest dev
 - Inngest Dev Server dashboard: [http://localhost:8288](http://localhost:8288) — it should show
   this app synced under "Apps".
 
+## Usage
+
+- **+ Add node** adds a decision node. Drag from its green (YES) or red (NO) handle to another
+  node to wire a path; edit the prompt directly in the node.
+- **▶ Run flow** starts execution at the node with no incoming edge, calling the LLM for each
+  node's prompt and following the matching YES/NO edge until it reaches a node with no outgoing
+  edge for the given answer. The active node and taken edges highlight live.
+- **File ▾** — save/load the current graph to this browser's local storage, or export/import it
+  as a `.json` file.
+- **Logs** — view the steps and outcome of the current run plus your last several runs.
+- If a node's LLM call fails (including after Inngest's automatic retries), that node turns red
+  with a **Retry from here** button to resume execution from that point.
+
 ## Status
 
-- **Phase 1 (done):** project scaffolding — Next.js, React Flow, Inngest, OpenAI SDK, and
-  shadcn/ui installed and wired up.
-- **Phase 2:** interactive flow editor (add/connect nodes, editable prompts, YES/NO edges).
-- **Phase 3:** real workflow execution via Inngest, LLM-driven branching.
-- **Phase 4:** polish (logs, save/load, export, etc.).
+All four phases are complete:
+
+- **Phase 1:** project scaffolding — Next.js, React Flow, Inngest, OpenAI SDK, and shadcn/ui
+  installed and wired up.
+- **Phase 2:** interactive flow editor (add/connect nodes, editable prompts, typed YES/NO edges).
+- **Phase 3:** real workflow execution via Inngest, calling OpenRouter per node and branching on
+  the YES/NO answer.
+- **Phase 4:** polish — execution logs & history panel, save/load to browser storage, JSON
+  export/import, refreshed node styling with terminal-node detection, and manual retry for failed
+  nodes.

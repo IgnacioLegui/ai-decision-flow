@@ -7,14 +7,16 @@ export type StepResult = {
 
 export type RunState = {
   status: "running" | "done" | "error";
+  startedAt: number;
   steps: StepResult[];
   error?: string;
+  failedNodeId?: string;
 };
 
 const runs = new Map<string, RunState>();
 
 export function createRun(runId: string) {
-  runs.set(runId, { status: "running", steps: [] });
+  runs.set(runId, { status: "running", startedAt: Date.now(), steps: [] });
 }
 
 export function appendStep(runId: string, step: StepResult) {
@@ -29,11 +31,12 @@ export function finishRun(runId: string) {
   run.status = "done";
 }
 
-export function failRun(runId: string, error: string) {
+export function failRun(runId: string, error: string, failedNodeId?: string) {
   const run = runs.get(runId);
   if (!run) return;
   run.status = "error";
   run.error = error;
+  run.failedNodeId = failedNodeId;
 }
 
 export function getRun(runId: string): RunState | undefined {

@@ -62,8 +62,9 @@ export const runFlow = inngest.createFunction(
         finishRun(runId);
       });
     } catch (err) {
+      const failedNodeId = currentId ?? undefined;
       await step.run("fail-run", async () => {
-        failRun(runId, err instanceof Error ? err.message : "Unknown error");
+        failRun(runId, err instanceof Error ? err.message : "Unknown error", failedNodeId);
       });
       throw err;
     }

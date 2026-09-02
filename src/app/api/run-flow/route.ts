@@ -12,15 +12,22 @@ type FlowEdge = {
 };
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as { nodes: FlowNode[]; edges: FlowEdge[] };
-  const { nodes, edges } = body;
+  const body = (await req.json()) as {
+    nodes: FlowNode[];
+    edges: FlowEdge[];
+    startNodeId?: string;
+  };
+  const { nodes, edges, startNodeId } = body;
 
   if (!nodes?.length) {
     return NextResponse.json({ error: "Add at least one node before running." }, { status: 400 });
   }
 
-  const targets = new Set(edges.map((e) => e.target));
-  const startNode = nodes.find((n) => !targets.has(n.id)) ?? nodes[0];
+  let startNode = startNodeId ? nodes.find((n) => n.id === startNodeId) : undefined;
+  if (!startNode) {
+    const targets = new Set(edges.map((e) => e.target));
+    startNode = nodes.find((n) => !targets.has(n.id)) ?? nodes[0];
+  }
 
   const runId = randomUUID();
   createRun(runId);
