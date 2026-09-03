@@ -9,8 +9,12 @@ export function getLlmClient() {
 
 export const LLM_MODEL = process.env.LLM_MODEL ?? "openrouter/free";
 
-export async function askYesNo(prompt: string): Promise<"YES" | "NO"> {
+export async function askYesNo(question: string, input?: string): Promise<"YES" | "NO"> {
   const client = getLlmClient();
+  const userContent = input?.trim()
+    ? `Scenario:\n"""\n${input.trim()}\n"""\n\nQuestion about the scenario above: ${question}`
+    : question;
+
   const completion = await client.chat.completions.create({
     model: LLM_MODEL,
     messages: [
@@ -19,7 +23,7 @@ export async function askYesNo(prompt: string): Promise<"YES" | "NO"> {
         content:
           'Answer the question with a single word: YES or NO. Output nothing else — no punctuation, no explanation, no reasoning.\nExample — Question: "Is water wet?" Answer: YES',
       },
-      { role: "user", content: prompt },
+      { role: "user", content: userContent },
     ],
     temperature: 0,
     // Some free-tier models "think out loud" before answering, so we give

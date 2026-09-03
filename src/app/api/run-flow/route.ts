@@ -16,8 +16,9 @@ export async function POST(req: NextRequest) {
     nodes: FlowNode[];
     edges: FlowEdge[];
     startNodeId?: string;
+    input?: string;
   };
-  const { nodes, edges, startNodeId } = body;
+  const { nodes, edges, startNodeId, input } = body;
 
   if (!nodes?.length) {
     return NextResponse.json({ error: "Add at least one node before running." }, { status: 400 });
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
 
   await inngest.send({
     name: "flow/run.requested",
-    data: { runId, nodes, edges, startNodeId: startNode.id },
+    data: { runId, nodes, edges, startNodeId: startNode.id, input },
   });
 
   return NextResponse.json({ runId });

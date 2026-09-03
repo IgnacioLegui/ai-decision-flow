@@ -1,7 +1,9 @@
 export type StepResult = {
   nodeId: string;
   prompt: string;
-  answer: "YES" | "NO";
+  // null means the node was a terminal node (no outgoing edges) — execution
+  // landed here and stopped without asking the LLM anything.
+  answer: "YES" | "NO" | null;
   nextNodeId: string | null;
 };
 

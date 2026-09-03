@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import {
   SaveIcon,
   FolderOpenIcon,
@@ -45,6 +46,7 @@ import {
   CheckCircle2Icon,
   XCircleIcon,
   ArrowRightIcon,
+  FlagIcon,
 } from "lucide-react";
 import { DecisionNode, type DecisionNodeData } from "./decision-node";
 import { YesEdge, NoEdge } from "./decision-edges";
@@ -69,7 +71,9 @@ const STORAGE_KEY = "ai-decision-flow:graph";
 type StepResult = {
   nodeId: string;
   prompt: string;
-  answer: "YES" | "NO";
+  // null means the node was terminal (no outgoing edges) — execution landed
+  // here and stopped without asking the LLM anything.
+  answer: "YES" | "NO" | null;
   nextNodeId: string | null;
 };
 
@@ -84,6 +88,7 @@ type RunState = {
 type RunSummary = RunState & { runId: string };
 
 type SavedGraph = {
+  input: string;
   nodes: { id: string; position: { x: number; y: number }; data: { prompt: string } }[];
   edges: {
     id: string;
@@ -94,8 +99,9 @@ type SavedGraph = {
   }[];
 };
 
-function serializeGraph(nodes: Node[], edges: Edge[]): SavedGraph {
+function serializeGraph(nodes: Node[], edges: Edge[], input: string): SavedGraph {
   return {
+    input,
     nodes: nodes.map((n) => ({
       id: n.id,
       position: n.position,
@@ -126,18 +132,18 @@ function FlowCanvasInner() {
   const [failedNodeId, setFailedNodeId] = useState<string | null>(null);
   const [runHistory, setRunHistory] = useState<RunSummary[]>([]);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const [scenarioInput, setScenarioInput] = useState("");
 
-  // Keep each node's "terminal" flag (no outgoing edges) in sync with the graph.
-  useEffect(() => {
+  // A node is terminal (a final destination, not a question) when it has no
+  // outgoing edges. Computed fresh every render instead of synced into node
+  // state, so newly-added nodes are correctly flagged immediately.
+  const displayNodes = useMemo(() => {
     const sourceIds = new Set(edges.map((e) => e.source));
-    setNodes((nds) =>
-      nds.map((n) => {
-        const isTerminal = !sourceIds.has(n.id);
-        if ((n.data as DecisionNodeData).isTerminal === isTerminal) return n;
-        return { ...n, data: { ...n.data, isTerminal } };
-      }),
-    );
-  }, [edges, setNodes]);
+    return nodes.map((n) => ({
+      ...n,
+      data: { ...n.data, isTerminal: !sourceIds.has(n.id) },
+    }));
+  }, [nodes, edges]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -192,7 +198,7 @@ function FlowCanvasInner() {
       const currentNodeId = steps.length ? steps[steps.length - 1].nextNodeId : null;
       const activeEdgeIds = new Set(
         steps
-          .filter((s) => s.nextNodeId)
+          .filter((s): s is StepResult & { answer: "YES" | "NO" } => s.answer !== null && !!s.nextNodeId)
           .map((s) => `${s.nodeId}-${s.answer.toLowerCase()}-${s.nextNodeId}`),
       );
 
@@ -237,6 +243,7 @@ function FlowCanvasInner() {
           sourceHandle: e.sourceHandle ?? null,
           target: e.target,
         })),
+        input: scenarioInput,
         ...(startNodeId ? { startNodeId } : {}),
       };
 
@@ -267,7 +274,7 @@ function FlowCanvasInner() {
         setRunError("Could not reach the server");
       }
     },
-    [nodes, edges, setNodes, setEdges],
+    [nodes, edges, scenarioInput, setNodes, setEdges],
   );
 
   const runFlow = useCallback(() => runFlowFrom(), [runFlowFrom]);
@@ -310,6 +317,7 @@ function FlowCanvasInner() {
 
   const applyGraph = useCallback(
     (graph: SavedGraph) => {
+      setScenarioInput(graph.input ?? "");
       setNodes(
         graph.nodes.map((n) => ({
           id: n.id,
@@ -340,9 +348,9 @@ function FlowCanvasInner() {
   }, []);
 
   const saveToBrowser = useCallback(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeGraph(nodes, edges)));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeGraph(nodes, edges, scenarioInput)));
     flash("Saved to this browser");
-  }, [nodes, edges, flash]);
+  }, [nodes, edges, scenarioInput, flash]);
 
   const loadFromBrowser = useCallback(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -359,7 +367,7 @@ function FlowCanvasInner() {
   }, [applyGraph, flash]);
 
   const exportJson = useCallback(() => {
-    const blob = new Blob([JSON.stringify(serializeGraph(nodes, edges), null, 2)], {
+    const blob = new Blob([JSON.stringify(serializeGraph(nodes, edges, scenarioInput), null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
@@ -368,7 +376,7 @@ function FlowCanvasInner() {
     a.download = "ai-decision-flow.json";
     a.click();
     URL.revokeObjectURL(url);
-  }, [nodes, edges]);
+  }, [nodes, edges, scenarioInput]);
 
   const handleImportFile = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -393,7 +401,7 @@ function FlowCanvasInner() {
     <RetryNodeContext.Provider value={retryNode}>
       <div ref={wrapperRef} className="h-full w-full">
         <ReactFlow
-          nodes={nodes}
+          nodes={displayNodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
@@ -407,7 +415,17 @@ function FlowCanvasInner() {
           <Controls />
           <MiniMap pannable zoomable />
 
-          <Panel position="top-left" className="flex flex-wrap items-center gap-2">
+          <Panel
+            position="top-left"
+            className="flex max-w-full flex-wrap items-center gap-2 rounded-md bg-card p-2 shadow-sm"
+          >
+            <Textarea
+              value={scenarioInput}
+              onChange={(e) => setScenarioInput(e.target.value)}
+              placeholder="Scenario to evaluate, e.g. “I can't log into my account and need help resetting my password.”"
+              aria-label="Scenario input"
+              className="h-8 min-h-8 w-72 resize-none py-1.5 text-xs"
+            />
             <Button size="sm" onClick={addNode}>
               + Add node
             </Button>
@@ -500,27 +518,38 @@ function FlowCanvasInner() {
                         </div>
                         <Separator className="mb-2" />
                         <div className="space-y-1.5">
-                          {run.steps.map((s, i) => (
-                            <div key={i} className="flex items-start gap-1.5 text-xs">
-                              <span
-                                className={
-                                  s.answer === "YES"
-                                    ? "font-bold text-emerald-600"
-                                    : "font-bold text-red-600"
-                                }
-                              >
-                                {s.answer}
-                              </span>
-                              <span className="flex-1 text-muted-foreground">
-                                {s.nodeId}: &ldquo;{s.prompt}&rdquo;
-                              </span>
-                              {s.nextNodeId && (
-                                <span className="flex items-center gap-0.5 text-muted-foreground">
-                                  <ArrowRightIcon className="h-3 w-3" /> {s.nextNodeId}
+                          {run.steps.map((s, i) =>
+                            s.answer === null ? (
+                              <div key={i} className="flex items-start gap-1.5 text-xs">
+                                <span className="flex items-center gap-1 font-bold text-blue-600">
+                                  <FlagIcon className="h-3 w-3" /> REACHED
                                 </span>
-                              )}
-                            </div>
-                          ))}
+                                <span className="flex-1 text-muted-foreground">
+                                  {s.nodeId}: &ldquo;{s.prompt}&rdquo;
+                                </span>
+                              </div>
+                            ) : (
+                              <div key={i} className="flex items-start gap-1.5 text-xs">
+                                <span
+                                  className={
+                                    s.answer === "YES"
+                                      ? "font-bold text-emerald-600"
+                                      : "font-bold text-red-600"
+                                  }
+                                >
+                                  {s.answer}
+                                </span>
+                                <span className="flex-1 text-muted-foreground">
+                                  {s.nodeId}: &ldquo;{s.prompt}&rdquo;
+                                </span>
+                                {s.nextNodeId && (
+                                  <span className="flex items-center gap-0.5 text-muted-foreground">
+                                    <ArrowRightIcon className="h-3 w-3" /> {s.nextNodeId}
+                                  </span>
+                                )}
+                              </div>
+                            ),
+                          )}
                           {run.status === "error" && (
                             <p className="text-xs text-red-600">{run.error}</p>
                           )}

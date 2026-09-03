@@ -62,14 +62,22 @@ npx inngest-cli@latest dev
 
 ## Usage
 
-- **+ Add node** adds a decision node. Drag from its green (YES) or red (NO) handle to another
-  node to wire a path; edit the prompt directly in the node.
+- **Scenario input** (top-left) is the thing being evaluated — e.g. a customer message like
+  "I can't log into my account." Decision nodes ask their yes/no question *about* this input.
+  Leaving it blank falls back to asking each node's question on its own.
+- **+ Add node** adds a node. A node with at least one outgoing edge is a **decision node** — its
+  prompt is asked as a yes/no question about the scenario input. A node with no outgoing edges is
+  a **terminal node** (e.g. "Support" / "Sales") — it's a final destination label, not a question,
+  so it's never sent to the LLM; execution just lands there and stops.
+- Drag from a node's green (YES) or red (NO) handle to another node to wire a path; edit the
+  prompt/label directly in the node.
 - **▶ Run flow** starts execution at the node with no incoming edge, calling the LLM for each
-  node's prompt and following the matching YES/NO edge until it reaches a node with no outgoing
-  edge for the given answer. The active node and taken edges highlight live.
-- **File ▾** — save/load the current graph to this browser's local storage, or export/import it
-  as a `.json` file.
-- **Logs** — view the steps and outcome of the current run plus your last several runs.
+  decision node's question (with the scenario input as context) and following the matching
+  YES/NO edge, until it reaches a terminal node. The active node and taken edges highlight live.
+- **File ▾** — save/load the current graph (including the scenario input) to this browser's local
+  storage, or export/import it as a `.json` file.
+- **Logs** — view the steps and outcome of the current run plus your last several runs, including
+  a distinct "REACHED" entry for the terminal node execution landed on.
 - If a node's LLM call fails (including after Inngest's automatic retries), that node turns red
   with a **Retry from here** button to resume execution from that point.
 

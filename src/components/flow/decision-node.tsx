@@ -60,7 +60,11 @@ function DecisionNodeComponent({ id, data, selected }: NodeProps) {
       <Textarea
         value={prompt}
         onChange={handleChange}
-        placeholder="Is this a support request?"
+        placeholder={
+          isTerminal
+            ? "Label for this destination, e.g. “Route to Support team”"
+            : "Yes/no question to ask the LLM, e.g. “Is this a support request?”"
+        }
         className="nodrag nowheel min-h-16 resize-none text-sm"
       />
 

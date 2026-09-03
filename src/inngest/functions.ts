@@ -15,14 +15,22 @@ const MAX_STEPS = 25;
 export const runFlow = inngest.createFunction(
   { id: "run-flow", triggers: { event: "flow/run.requested" } },
   async ({ event, step }) => {
-    const { runId, nodes, edges, startNodeId } = event.data as {
+    const { runId, nodes, edges, startNodeId, input } = event.data as {
       runId: string;
       nodes: FlowNode[];
       edges: FlowEdge[];
       startNodeId: string;
+      input?: string;
     };
 
     const nodesById = new Map(nodes.map((n) => [n.id, n]));
+    const outgoingByNode = new Map<string, FlowEdge[]>();
+    for (const edge of edges) {
+      const list = outgoingByNode.get(edge.source) ?? [];
+      list.push(edge);
+      outgoingByNode.set(edge.source, list);
+    }
+
     let currentId: string | null = startNodeId;
     let iterations = 0;
 
@@ -33,15 +41,29 @@ export const runFlow = inngest.createFunction(
 
         const nodeId = currentId;
         const stepIndex = iterations;
+        const outgoing = outgoingByNode.get(nodeId) ?? [];
+
+        if (outgoing.length === 0) {
+          // Terminal node (e.g. "Support" / "Sales") — this is a final
+          // destination, not a question to ask the LLM. Record it and stop.
+          await step.run(`land-${stepIndex}-${nodeId}`, async () => {
+            appendStep(runId, {
+              nodeId,
+              prompt: node.data.prompt,
+              answer: null,
+              nextNodeId: null,
+            });
+          });
+          currentId = null;
+          break;
+        }
 
         const result: { nextNodeId: string | null } = await step.run(
           `decide-${stepIndex}-${nodeId}`,
           async () => {
-            const answer = await askYesNo(node.data.prompt);
-            const outgoing = edges.find(
-              (e) => e.source === nodeId && e.sourceHandle === answer.toLowerCase(),
-            );
-            const nextNodeId = outgoing ? outgoing.target : null;
+            const answer = await askYesNo(node.data.prompt, input);
+            const match = outgoing.find((e) => e.sourceHandle === answer.toLowerCase());
+            const nextNodeId = match ? match.target : null;
 
             appendStep(runId, {
               nodeId,
