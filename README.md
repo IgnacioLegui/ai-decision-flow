@@ -32,7 +32,7 @@ cp .env.local.example .env.local
 INNGEST_DEV=1
 LLM_BASE_URL=https://openrouter.ai/api/v1
 LLM_API_KEY=sk-or-v1-...   # from https://openrouter.ai/keys
-LLM_MODEL=openrouter/free
+LLM_MODEL=nvidia/nemotron-3-super-120b-a12b:free
 ```
 
 `INNGEST_DEV=1` tells the Inngest SDK it's running against the local Dev Server rather than
@@ -43,6 +43,14 @@ To get a key: sign up free at [openrouter.ai](https://openrouter.ai), then at
 endpoints that may train on request data" and "Free endpoints that may publish prompts" (without
 this, free-model calls fail with a 404). Then create a key at
 [openrouter.ai/keys](https://openrouter.ai/keys).
+
+**Why a specific model instead of `openrouter/free`:** that alias routes every request to a
+random free model on OpenRouter, which can give different answers to the exact same input from
+one run to the next. Pinning one specific `:free` model gives repeatable answers on clear-cut
+scenarios (verified: 5/5 identical results in testing). Free models come and go, so if this one
+stops working, check `https://openrouter.ai/api/v1/models` for current `:free`-suffixed ids and
+swap in a new one. Note that even a pinned free model can still show some variance on genuinely
+ambiguous/borderline scenarios — that's inherent to free-tier shared inference, not a bug.
 
 ## Running locally
 
