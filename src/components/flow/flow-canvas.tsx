@@ -83,6 +83,7 @@ type RunState = {
   steps: StepResult[];
   error?: string;
   failedNodeId?: string;
+  input?: string;
 };
 
 type RunSummary = RunState & { runId: string };
@@ -264,7 +265,13 @@ function FlowCanvasInner() {
         const { runId: newRunId } = (await res.json()) as { runId: string };
         setRunHistory((hist) =>
           [
-            { runId: newRunId, status: "running" as const, startedAt: Date.now(), steps: [] },
+            {
+              runId: newRunId,
+              status: "running" as const,
+              startedAt: Date.now(),
+              steps: [],
+              input: scenarioInput,
+            },
             ...hist,
           ].slice(0, MAX_HISTORY),
         );
@@ -516,6 +523,15 @@ function FlowCanvasInner() {
                             {run.status}
                           </span>
                         </div>
+                        {run.input?.trim() ? (
+                          <p className="mb-2 text-xs text-muted-foreground">
+                            <span className="font-semibold">Scenario:</span> &ldquo;{run.input}&rdquo;
+                          </p>
+                        ) : (
+                          <p className="mb-2 text-xs italic text-muted-foreground">
+                            No scenario input — each node was asked its own question directly.
+                          </p>
+                        )}
                         <Separator className="mb-2" />
                         <div className="space-y-1.5">
                           {run.steps.map((s, i) =>

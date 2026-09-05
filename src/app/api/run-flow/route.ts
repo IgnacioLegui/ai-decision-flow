@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   }
 
   const runId = randomUUID();
-  createRun(runId);
+  createRun(runId, input);
 
   await inngest.send({
     name: "flow/run.requested",

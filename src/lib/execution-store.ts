@@ -13,12 +13,13 @@ export type RunState = {
   steps: StepResult[];
   error?: string;
   failedNodeId?: string;
+  input?: string;
 };
 
 const runs = new Map<string, RunState>();
 
-export function createRun(runId: string) {
-  runs.set(runId, { status: "running", startedAt: Date.now(), steps: [] });
+export function createRun(runId: string, input?: string) {
+  runs.set(runId, { status: "running", startedAt: Date.now(), steps: [], input });
 }
 
 export function appendStep(runId: string, step: StepResult) {
